@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from app.db.session import get_session
+from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserResponse
 from app.core.security import hash_password, verify_password, create_access_token
@@ -43,9 +44,6 @@ async def login(payload: LoginRequest, session: AsyncSession = Depends(get_sessi
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(
-    # NOTE for Ijudigal: replace this comment with get_current_user dependency
-    # once you implement the auth dependency in app/core/dependencies.py
-    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    # Stub — Ijudigal implements the dependency injection here
-    raise HTTPException(status_code=501, detail="Implement get_current_user dependency")
+    return current_user
