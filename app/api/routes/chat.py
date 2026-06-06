@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 from sqlalchemy import update
 from app.db.session import AsyncSessionLocal, get_session
@@ -38,7 +38,22 @@ async def _get_conversation_history(
     messages = result.all()
     return [{"role": msg.role.value, "content": msg.content} for msg in messages]
 
+"""
+    THIS IS FOR THE EVENT STREAM FUNCTION
+    Generator function that streams Scarlet's response token by token to the client
+    using Server-Sent Events (SSE) format.
 
+    Flow:
+    1. Calls Gemini and yields each token as it arrives, formatted as SSE data frames
+    2. Once streaming is complete, opens a FRESH database session (separate from the
+       request session) to persist the full assembled response as an assistant message
+       and update the conversation's updated_at timestamp
+    3. Yields a final [DONE] event so the client knows the stream has ended
+
+    Why a new session? The conversation object is bound to the request session which
+    closes after the route handler returns. By the time streaming finishes, that session
+    is gone — so we open a new one just for the DB writes.
+    """
 @router.post("/stream")
 async def chat_stream(
     payload: ChatRequest,
@@ -102,7 +117,7 @@ async def chat_stream(
             await new_session.exec(
                 update(Conversation)
                 .where(Conversation.id == conversation.id)
-                .values(updated_at=datetime.utcnow())
+                .values(updated_at=datetime.now(timezone.utc))
             )
 
             await new_session.commit()
