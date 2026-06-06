@@ -6,8 +6,10 @@ from typing import List
 from datetime import datetime
 import uuid
 
+from app.core.dependencies import get_current_user
 from app.db.session import get_session
 from app.models.conversation import Conversation, Message, MessageRole, UserMemory
+from app.models.user import User
 from app.schemas.chat import ChatRequest, ConversationResponse, MessageResponse
 from app.services.gemini import stream_scarlet_response
 
@@ -42,15 +44,9 @@ async def _get_conversation_history(
 async def chat_stream(
     payload: ChatRequest,
     session: AsyncSession = Depends(get_session),
-    # NOTE for Ijudigal: inject current_user via get_current_user dependency
-    # Replace hardcoded user_id below once auth dependency is ready
+    current_user: User = Depends(get_current_user),
 ):
-    # --- TEMPORARY: hardcoded user_id until auth dependency is wired ---
-    # Ijudigal: replace this with: current_user: User = Depends(get_current_user)
-    # then use current_user.id instead of TEMP_USER_ID
-    TEMP_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
-    user_id = TEMP_USER_ID
-    # -------------------------------------------------------------------
+    user_id = current_user.id
 
     # Create or fetch conversation
     if payload.conversation_id:
