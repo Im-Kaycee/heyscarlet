@@ -5,12 +5,13 @@ from sqlmodel import select
 from typing import List
 from datetime import datetime
 import uuid
-
-from app.db.session import get_session
+from sqlalchemy import update
+from app.db.session import AsyncSessionLocal, get_session
 from app.models.conversation import Conversation, Message, MessageRole, UserMemory
-from app.schemas.chat import ChatRequest, ConversationResponse, MessageResponse
+from app.models.user import User
+from app.schemas.chat import ChatRequest, ConversationResponse, MessageResponse, CreateConversationRequest
 from app.services.gemini import stream_scarlet_response
-
+from app.core.dependencies import get_current_user
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
@@ -42,15 +43,9 @@ async def _get_conversation_history(
 async def chat_stream(
     payload: ChatRequest,
     session: AsyncSession = Depends(get_session),
-    # NOTE for Ijudigal: inject current_user via get_current_user dependency
-    # Replace hardcoded user_id below once auth dependency is ready
+    current_user: User = Depends(get_current_user),
 ):
-    # --- TEMPORARY: hardcoded user_id until auth dependency is wired ---
-    # Ijudigal: replace this with: current_user: User = Depends(get_current_user)
-    # then use current_user.id instead of TEMP_USER_ID
-    TEMP_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
-    user_id = TEMP_USER_ID
-    # -------------------------------------------------------------------
+    user_id = current_user.id
 
     # Create or fetch conversation
     if payload.conversation_id:
@@ -94,37 +89,98 @@ async def chat_stream(
             full_response.append(token)
             yield f"data: {token}\n\n"
 
-        # After streaming completes, persist Scarlet's full response
-        assistant_msg = Message(
-            conversation_id=conversation.id,
-            role=MessageRole.assistant,
-            content="".join(full_response),
-        )
-        session.add(assistant_msg)
+        async with AsyncSessionLocal() as new_session:
+            # Save assistant message
+            assistant_msg = Message(
+                conversation_id=conversation.id,
+                role=MessageRole.assistant,
+                content="".join(full_response),
+            )
+            new_session.add(assistant_msg)
 
-        # Update conversation timestamp
-        conversation.updated_at = datetime.utcnow()
-        session.add(conversation)
-        await session.commit()
+            # Update conversation timestamp directly without re-adding the object
+            await new_session.exec(
+                update(Conversation)
+                .where(Conversation.id == conversation.id)
+                .values(updated_at=datetime.utcnow())
+            )
+
+            await new_session.commit()
 
         yield "data: [DONE]\n\n"
-
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @router.get("/conversations", response_model=List[ConversationResponse])
 async def list_conversations(
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    # NOTE for Ijudigal: wire get_current_user here too
-    # Stub for now — Nandom implements the full query
-    raise HTTPException(status_code=501, detail="Implement list conversations")
+    result = await session.exec(
+        select(Conversation)
+        .where(
+            Conversation.user_id == current_user.id,
+            Conversation.is_archived == False,
+        )
+        .order_by(Conversation.updated_at.desc())
+    )
+    return result.all()
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=List[MessageResponse])
 async def get_messages(
     conversation_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    # NOTE for Nandom: implement this — fetch messages for a conversation
-    raise HTTPException(status_code=501, detail="Implement get messages")
+    # Verify conversation belongs to current user
+    conv_result = await session.exec(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.user_id == current_user.id,
+        )
+    )
+    if not conv_result.first():
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    result = await session.exec(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at.asc())
+    )
+    return result.all()
+
+@router.post("/conversations", response_model=ConversationResponse, status_code=201)
+async def create_conversation(
+    payload: CreateConversationRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    conversation = Conversation(user_id=current_user.id, title=payload.title)
+    session.add(conversation)
+    await session.commit()
+    await session.refresh(conversation)
+    return conversation
+
+
+@router.patch("/conversations/{conversation_id}/archive", response_model=ConversationResponse)
+async def archive_conversation(
+    conversation_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    result = await session.exec(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.user_id == current_user.id,
+        )
+    )
+    conversation = result.first()
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    conversation.is_archived = True
+    session.add(conversation)
+    await session.commit()
+    await session.refresh(conversation)
+    return conversation
