@@ -115,16 +115,45 @@ async def chat_stream(
 @router.get("/conversations", response_model=List[ConversationResponse])
 async def list_conversations(
     session: AsyncSession = Depends(get_session),
+    current_user = Depends(get_current_user)
 ):
     # NOTE for Ijudigal: wire get_current_user here too
     # Stub for now — Nandom implements the full query
-    raise HTTPException(status_code=501, detail="Implement list conversations")
-
+    statement = select(Conversation).where(
+        Conversation.user_id == current_user.id,
+        Conversation.is_archived == False
+    )
+    
+    # Execute asynchronously 
+    result = await session.execute(statement)
+    conversations = result.scalars().all()
+    
+    return conversations
+    # raise HTTPException(status_code=501, detail="Implement list conversations")
 
 @router.get("/conversations/{conversation_id}/messages", response_model=List[MessageResponse])
 async def get_messages(
     conversation_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
+    current_user = Depends(get_current_user)
 ):
-    # NOTE for Nandom: implement this — fetch messages for a conversation
-    raise HTTPException(status_code=501, detail="Implement get messages")
+    # Verify the conversation exists AND belongs to this user
+    convo_stmt = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.user_id == current_user.id
+    )
+    convo_result = await session.execute(convo_stmt)
+    convo = convo_result.scalar_one_or_none()
+    
+    if not convo:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # Fetch the messages ordered by creation time
+    msg_stmt = select(Message).where(
+        Message.conversation_id == conversation_id
+    ).order_by(Message.created_at.asc())
+    
+    msg_result = await session.execute(msg_stmt)
+    messages = msg_result.scalars().all()
+    
+    return messages
