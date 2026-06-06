@@ -117,7 +117,7 @@ async def chat_stream(
             await new_session.exec(
                 update(Conversation)
                 .where(Conversation.id == conversation.id)
-                .values(updated_at=datetime.now(timezone.utc))
+                .values(updated_at=datetime.utcnow())
             )
 
             await new_session.commit()

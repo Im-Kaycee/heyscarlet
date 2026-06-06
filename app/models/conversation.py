@@ -22,8 +22,8 @@ class Conversation(SQLModel, table=True):
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True, nullable=False)
     title: Optional[str] = Field(default=None)  # auto-generated from first message
     is_archived: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
 
 class Message(SQLModel, table=True):
@@ -41,7 +41,7 @@ class Message(SQLModel, table=True):
     role: MessageRole = Field(nullable=False)
     content: str = Field(nullable=False)
     token_count: Optional[int] = Field(default=None)  # for usage tracking
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
 
 class UserMemory(SQLModel, table=True):
@@ -62,5 +62,5 @@ class UserMemory(SQLModel, table=True):
     value: str = Field(nullable=False)  # e.g. "Launch HeyScarlet by August"
     source: str = Field(default="onboarding")  # "onboarding" | "conversation"
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
