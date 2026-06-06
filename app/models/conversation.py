@@ -44,11 +44,13 @@ class Message(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
 
+class MemoryStatus(str, Enum):
+    active = "active"
+    latent = "latent"
+    user_reopened = "user_reopened"
+
+
 class UserMemory(SQLModel, table=True):
-    """
-    Stores structured memory extracted from user conversations.
-    Used to inject context into Scarlet's system prompt.
-    """
     __tablename__ = "user_memories"
 
     id: uuid.UUID = Field(
@@ -58,9 +60,11 @@ class UserMemory(SQLModel, table=True):
         nullable=False,
     )
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True, nullable=False)
-    key: str = Field(nullable=False)    # e.g. "current_goal", "biggest_fear"
-    value: str = Field(nullable=False)  # e.g. "Launch HeyScarlet by August"
-    source: str = Field(default="onboarding")  # "onboarding" | "conversation"
-    is_active: bool = Field(default=True)
+    key: str = Field(nullable=False)
+    value: str = Field(nullable=False)
+    source: str = Field(default="onboarding")
+    status: MemoryStatus = Field(default=MemoryStatus.active)
+    sensitivity_flag: bool = Field(default=False)
+    sessions_since_surfaced: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)

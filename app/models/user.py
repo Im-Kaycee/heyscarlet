@@ -24,3 +24,18 @@ class User(SQLModel, table=True):
 
     # Onboarding
     onboarding_complete: bool = Field(default=False)
+    
+class RefreshToken(SQLModel, table=True):
+    __tablename__ = "refresh_tokens"
+
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        primary_key=True,
+        index=True,
+        nullable=False,
+    )
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True, nullable=False)
+    token: str = Field(unique=True, index=True, nullable=False)
+    expires_at: datetime = Field(nullable=False)
+    is_revoked: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
