@@ -23,3 +23,5 @@ class ConversationResponse(BaseModel):
 class ChatRequest(BaseModel):
     conversation_id: Optional[uuid.UUID] = None
     message: str
+class CreateConversationRequest(BaseModel):
+    title: Optional[str] = None

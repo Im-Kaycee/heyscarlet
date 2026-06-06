@@ -20,7 +20,9 @@ async def register(payload: RegisterRequest, session: AsyncSession = Depends(get
     user = User(
         email=payload.email,
         hashed_password=hash_password(payload.password),
-        full_name=payload.full_name,
+        username=payload.username,
+        first_name=payload.first_name,
+        last_name=payload.last_name,
     )
     session.add(user)
     await session.commit()

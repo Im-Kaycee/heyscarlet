@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # Gemini
     GEMINI_API_KEY: str
-    GEMINI_MODEL: str = "gemini-1.5-flash"
+    GEMINI_MODEL: str = "gemini-3.5-flash"
 
     # Scarlet persona system prompt
     SCARLET_SYSTEM_PROMPT: str = (
