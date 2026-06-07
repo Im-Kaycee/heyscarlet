@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.routes import auth, chat
+from app.api.routes import memory
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -22,7 +23,7 @@ app.add_middleware(
 # Routers
 app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(chat.router, prefix=settings.API_V1_STR)
-
+app.include_router(memory.router, prefix=settings.API_V1_STR)
 
 @app.get("/health")
 async def health():
