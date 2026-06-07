@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import uuid
 from sqlalchemy import update
 from app.db.session import AsyncSessionLocal, get_session
-from app.models.conversation import Conversation, Message, MessageRole, UserMemory
+from app.models.conversation import Conversation, MemoryStatus, Message, MessageRole, UserMemory
 from app.models.user import User
 from app.schemas.chat import ChatRequest, ConversationResponse, MessageResponse, CreateConversationRequest
 from app.services.gemini import stream_scarlet_response
@@ -16,9 +16,12 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 async def _get_memory_context(user_id: uuid.UUID, session: AsyncSession) -> str:
-    """Pull stored user memories and format them for Scarlet's system prompt."""
     result = await session.exec(
-        select(UserMemory).where(UserMemory.user_id == user_id)
+        select(UserMemory).where(
+            UserMemory.user_id == user_id,
+            UserMemory.status == MemoryStatus.active,
+            UserMemory.sensitivity_flag == False,
+        )
     )
     memories = result.all()
     if not memories:

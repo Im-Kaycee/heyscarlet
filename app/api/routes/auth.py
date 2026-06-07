@@ -147,3 +147,14 @@ async def logout(request: Request, response: Response, session: AsyncSession = D
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+@router.patch("/me/onboarding", response_model=UserResponse)
+async def complete_onboarding(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    current_user.onboarding_complete = True
+    session.add(current_user)
+    await session.commit()
+    await session.refresh(current_user)
+    return current_user
