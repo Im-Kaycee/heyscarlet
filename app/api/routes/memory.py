@@ -1,0 +1,65 @@
+from fastapi import APIRouter, Depends, status
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
+from datetime import datetime
+from pydantic import BaseModel
+
+from app.db.session import get_session
+from app.core.dependencies import get_current_user
+from app.models.user import User
+from app.models.conversation import UserMemory, MemoryStatus
+
+router = APIRouter(prefix="/memory", tags=["Memory"])
+
+# Pydantic schema to validate the incoming JSON from the frontend
+class MemoryCreate(BaseModel):
+    key: str
+    value: str
+    source: str = "onboarding"
+    sensitivity_flag: bool = False
+
+# /memory endpoint to create or update a user memory
+@router.post("", response_model=UserMemory, status_code=status.HTTP_200_OK)
+async def save_or_update_memory(
+    data: MemoryCreate,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    POST /memory: Upsert a fact Scarlet learns about the user.
+    Ensures one unique row per concept key per user.
+    """
+    # Step A: Check if a memory with that key already exists for the current user
+    statement = select(UserMemory).where(
+        UserMemory.user_id == current_user.id, 
+        UserMemory.key == data.key
+    )
+    result = await session.exec(statement)
+    existing_memory = result.first()
+
+    if existing_memory:
+        # Step B: If it exists — update value, reset status to active, update timestamps
+        existing_memory.value = data.value
+        existing_memory.source = data.source
+        existing_memory.sensitivity_flag = data.sensitivity_flag
+        existing_memory.status = MemoryStatus.active
+        existing_memory.updated_at = datetime.utcnow()
+        
+        session.add(existing_memory)
+        await session.commit()
+        await session.refresh(existing_memory)
+        return existing_memory
+
+    # Step C: If it doesn't exist — create a new UserMemory row
+    new_memory = UserMemory(
+        user_id=current_user.id,
+        key=data.key,
+        value=data.value,
+        source=data.source,
+        sensitivity_flag=data.sensitivity_flag,
+        status=MemoryStatus.active
+    )
+    session.add(new_memory)
+    await session.commit()
+    await session.refresh(new_memory)
+    return new_memory
