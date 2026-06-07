@@ -44,6 +44,12 @@ class Message(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
 
+class MemoryStatus(str, Enum):
+    active = "active"
+    latent = "latent"
+    user_reopened = "user_reopened"
+
+
 class UserMemory(SQLModel, table=True):
     """
     Stores structured memory extracted from user conversations.
@@ -61,6 +67,8 @@ class UserMemory(SQLModel, table=True):
     key: str = Field(nullable=False)    # e.g. "current_goal", "biggest_fear"
     value: str = Field(nullable=False)  # e.g. "Launch HeyScarlet by August"
     source: str = Field(default="onboarding")  # "onboarding" | "conversation"
-    is_active: bool = Field(default=True)
+    status: MemoryStatus = Field(default=MemoryStatus.active)
+    sensitivity_flag: bool = Field(default=False)
+    sessions_since_surfaced: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
