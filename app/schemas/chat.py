@@ -25,3 +25,10 @@ class ChatRequest(BaseModel):
     message: str
 class CreateConversationRequest(BaseModel):
     title: Optional[str] = None
+    
+# Pydantic schema to validate the incoming JSON from the frontend
+class MemoryCreate(BaseModel):
+    key: str
+    value: str
+    source: str = "onboarding"
+    sensitivity_flag: bool = False

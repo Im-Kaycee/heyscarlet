@@ -8,16 +8,8 @@ from app.db.session import get_session
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.conversation import UserMemory, MemoryStatus
-
+from app.schemas.chat import MemoryCreate
 router = APIRouter(prefix="/memory", tags=["Memory"])
-
-# Pydantic schema to validate the incoming JSON from the frontend
-class MemoryCreate(BaseModel):
-    key: str
-    value: str
-    source: str = "onboarding"
-    sensitivity_flag: bool = False
-
 # /memory endpoint to create or update a user memory
 @router.post("", response_model=UserMemory, status_code=status.HTTP_200_OK)
 async def save_or_update_memory(
