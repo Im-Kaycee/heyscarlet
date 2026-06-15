@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, status
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -9,7 +11,32 @@ from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.conversation import UserMemory, MemoryStatus
 from app.schemas.chat import MemoryCreate
+
 router = APIRouter(prefix="/memory", tags=["Memory"])
+
+
+@router.get("", response_model=List[UserMemory])
+async def get_user_memories(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    GET /memory: Returns active, non-sensitive memories for the current user.
+
+    Filters:
+    - status == active: Latent memories (recently surfaced) are excluded
+    - sensitivity_flag == False: Sensitive memories require special handling
+    """
+    result = await session.exec(
+        select(UserMemory).where(
+            UserMemory.user_id == current_user.id,
+            UserMemory.status == MemoryStatus.active,
+            UserMemory.sensitivity_flag == False,
+        )
+    )
+    return result.all()
+
+
 # /memory endpoint to create or update a user memory
 @router.post("", response_model=UserMemory, status_code=status.HTTP_200_OK)
 async def save_or_update_memory(
