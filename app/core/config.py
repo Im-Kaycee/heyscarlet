@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # Gemini
     GEMINI_API_KEY: str
     GEMINI_MODEL: str = "gemini-3.5-flash"
+    
+    # Resend
+    RESEND_API_KEY: str
 
     # Scarlet persona system prompt
     SCARLET_SYSTEM_PROMPT: str = """

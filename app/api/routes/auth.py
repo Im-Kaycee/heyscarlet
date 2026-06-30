@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, BackgroundTasks
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from datetime import datetime, timedelta
@@ -8,6 +8,8 @@ from app.models.user import User, RefreshToken
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserResponse
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
 from app.core.config import settings
+from app.services.email import send_password_change_alert
+from app.schemas.auth import ChangePasswordRequest
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -158,3 +160,29 @@ async def complete_onboarding(
     await session.commit()
     await session.refresh(current_user)
     return current_user
+
+@router.post("/change_password")
+async def change_password(
+    payload: ChangePasswordRequest, 
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+      
+    if not verify_password(payload.old_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect current password"
+        )
+    
+    #Hash the new password before saving it
+    new_hashed_password = hash_password(payload.new_password)
+    
+    # Update the user object and commit to the database
+    current_user.hashed_password = new_hashed_password
+    session.add(current_user)
+    await session.commit()
+    # Queue the email alert to trigger in the background
+    background_tasks.add_task(send_password_change_alert, current_user.email)
+
+    return {"message": "Password updated successfully"}
