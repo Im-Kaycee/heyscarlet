@@ -174,11 +174,8 @@ async def change_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Incorrect current password"
         )
-    
-    #Hash the new password before saving it
     new_hashed_password = hash_password(payload.new_password)
     
-    # Update the user object and commit to the database
     current_user.hashed_password = new_hashed_password
     session.add(current_user)
     await session.commit()
