@@ -28,3 +28,7 @@ class UserResponse(BaseModel):
     first_name: Optional[str]
     last_name: Optional[str]
     onboarding_complete: bool
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
