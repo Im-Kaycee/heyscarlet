@@ -70,14 +70,87 @@ def send_password_change_alert(user_email: str):
     params: resend.Emails.SendParams = {
         "from": "Security <onboarding@resend.dev>",
         # Testing emails Can only be sent to your resend email if you dont have a domain yet. so you can swap the var for your mail to test
-        "to": ["nandomdrimz@gmail.com"], #[user_email], 
+        "to": [user_email], 
         "subject": "Your Password Has Been Changed",
         "html": html_content,
     }
     
     try:
         # Executes the API call to Resend
-        resend.Emails.send(params) 
+        result = resend.Emails.send(params)
+        print(f"Password change alert sent: {result}")
     except Exception as e:
-        # this failure will be logged latercinstead of just printing
         print(f"Failed to send email alert: {e}")
+
+
+def send_password_reset_email(user_email: str, reset_token: str, reset_link: str):
+    """Sends a password reset link via Resend."""
+    html_content = f"""
+        <div style="background-color: #e8e8e8; padding: 32px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <div style="max-width: 580px; margin: 0 auto;">
+            <div style="background: #ffffff; border-radius: 4px; overflow: hidden;">
+
+            <!-- Header -->
+            <div style="background-color: #E8380D; padding: 28px 40px; display: flex; align-items: center; gap: 12px;">
+                <div style="width: 36px; height: 36px; background: rgba(255,255,255,0.15); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <path d="M9 2L11.2 6.4L16 7.3L12.5 10.7L13.4 15.5L9 13.1L4.6 15.5L5.5 10.7L2 7.3L6.8 6.4L9 2Z" fill="rgba(255,255,255,0.9)" stroke="rgba(255,255,255,0.5)" stroke-width="0.5"/>
+                </svg>
+                </div>
+                <p style="color: #ffffff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px; margin: 0;">HeyScarlet</p>
+            </div>
+
+            <!-- Body -->
+            <div style="padding: 40px 40px 32px;">
+
+                <h2 style="font-size: 21px; font-weight: 600; color: #111111; margin: 0 0 18px; line-height: 1.3;">Reset your password</h2>
+
+                <p style="font-size: 15px; line-height: 1.65; color: #444444; margin: 0 0 28px;">We received a request to reset the password on your HeyScarlet account. Click the button below to create a new password.</p>
+
+                <!-- CTA Button -->
+                <div style="margin: 32px 0;">
+                <a href="{reset_link}" style="display: inline-block; background: #E8380D; color: #ffffff; font-size: 14px; font-weight: 600; padding: 12px 32px; border-radius: 4px; text-decoration: none; letter-spacing: 0.2px;">Reset Password</a>
+                </div>
+
+                <p style="font-size: 13px; color: #666666; margin: 28px 0 0; line-height: 1.6;">This link expires in 1 hour. If you didn't request a password reset, ignore this email.</p>
+
+                <hr style="border: none; border-top: 1px solid #F0F0F0; margin: 24px 0;">
+
+                <!-- Backup code -->
+                <p style="font-size: 12px; color: #888888; margin: 0 0 8px;">Or use this code:</p>
+                <div style="background: #F5F5F5; padding: 12px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; letter-spacing: 2px; text-align: center; color: #333333; margin: 0;">
+                    {reset_token}
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div style="background: #F7F7F7; border-top: 1px solid #EBEBEB; padding: 24px 40px;">
+                <div style="margin-bottom: 14px;">
+                <a href="#" style="font-size: 12px; color: #888888; text-decoration: none; margin-right: 20px;">Privacy Policy</a>
+                <a href="#" style="font-size: 12px; color: #888888; text-decoration: none; margin-right: 20px;">Terms of Service</a>
+                <a href="#" style="font-size: 12px; color: #888888; text-decoration: none;">Help Centre</a>
+                </div>
+                <p style="font-size: 11px; color: #AAAAAA; line-height: 1.6; margin: 0;">
+                You received this because you have a <span style="color: #E8380D; font-weight: 600;">HeyScarlet</span> account. This is an automated email — please do not reply directly to this message.<br>
+                &copy; 2026 HeyScarlet. All rights reserved.
+                </p>
+            </div>
+
+            </div>
+        </div>
+        </div>
+        """
+    
+    params: resend.Emails.SendParams = {
+        "from": "Support <onboarding@resend.dev>",
+        "to": [user_email],
+        "subject": "Reset Your HeyScarlet Password",
+        "html": html_content,
+    }
+    
+    try:
+        result = resend.Emails.send(params)
+        print(f"Password reset email sent: {result}")
+    except Exception as e:
+        print(f"Failed to send password reset email: {e}")

@@ -8,8 +8,10 @@ from app.models.user import User, RefreshToken
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserResponse
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
 from app.core.config import settings
-from app.services.email import send_password_change_alert
-from app.schemas.auth import ChangePasswordRequest
+from app.services.email import send_password_change_alert, send_password_reset_email
+from app.schemas.auth import ChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest
+from app.models.user import PasswordResetToken
+import secrets
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -183,3 +185,93 @@ async def change_password(
     background_tasks.add_task(send_password_change_alert, current_user.email)
 
     return {"message": "Password updated successfully"}
+
+
+@router.post("/forgot_password")
+async def forgot_password(
+    payload: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+):
+    """Request a password reset token for the given email."""
+    result = await session.exec(select(User).where(User.email == payload.email))
+    user = result.first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # Generate reset token
+    reset_token = secrets.token_urlsafe(32)
+    password_reset = PasswordResetToken(
+        user_id=user.id,
+        token=reset_token,
+        expires_at=datetime.utcnow() + timedelta(hours=1),
+    )
+    session.add(password_reset)
+    await session.commit()
+
+    # Build reset link (update with your frontend URL)
+    reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
+
+    # Queue the email
+    background_tasks.add_task(
+        send_password_reset_email,
+        user.email,
+        reset_token,
+        reset_link
+    )
+
+    return {"message": "Password reset email sent"}
+
+
+@router.post("/reset_password")
+async def reset_password(
+    payload: ResetPasswordRequest,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+):
+    """Reset password using a valid reset token."""
+    result = await session.exec(
+        select(PasswordResetToken).where(
+            PasswordResetToken.token == payload.token,
+            PasswordResetToken.is_used == False,
+        )
+    )
+    reset_token = result.first()
+
+    if not reset_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token"
+        )
+
+    if reset_token.expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reset token has expired"
+        )
+
+    # Fetch user and update password
+    user_result = await session.exec(select(User).where(User.id == reset_token.user_id))
+    user = user_result.first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    user.hashed_password = hash_password(payload.new_password)
+    reset_token.is_used = True
+    
+    session.add(user)
+    session.add(reset_token)
+    await session.commit()
+
+    # Queue the security alert
+    background_tasks.add_task(send_password_change_alert, user.email)
+
+    return {"message": "Password reset successfully"}

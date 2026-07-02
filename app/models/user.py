@@ -39,3 +39,19 @@ class RefreshToken(SQLModel, table=True):
     expires_at: datetime = Field(nullable=False)
     is_revoked: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+
+class PasswordResetToken(SQLModel, table=True):
+    __tablename__ = "password_reset_tokens"
+
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        primary_key=True,
+        index=True,
+        nullable=False,
+    )
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True, nullable=False)
+    token: str = Field(unique=True, index=True, nullable=False)
+    expires_at: datetime = Field(nullable=False)
+    is_used: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
